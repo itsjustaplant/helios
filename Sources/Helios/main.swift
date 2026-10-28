@@ -89,7 +89,11 @@ func run() throws {
     print("Display vendor \(CGDisplayVendorNumber(display)), model \(CGDisplayModelNumber(display)): input \(value) (0x\(String(value, radix: 16)))")
 }
 
-do { try run() } catch {
-    fputs("Helios: \(error)\n", stderr)
-    exit(1)
+if CommandLine.arguments.dropFirst().elementsEqual(["window"]) {
+    startWindow()
+} else {
+    do { try run() } catch {
+        fputs("Helios: \(error)\n", stderr)
+        exit(1)
+    }
 }

@@ -1,6 +1,10 @@
 import AppKit
 import Carbon
 
+final class SwitcherPanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+}
+
 @MainActor
 final class Switcher: NSObject, NSApplicationDelegate {
     private var hotkey: EventHotKeyRef?
@@ -10,7 +14,8 @@ final class Switcher: NSObject, NSApplicationDelegate {
     private var timer: Timer?
     private var selected = 0
     private var current: Int?
-    private var labels: [NSTextField] = []
+    private var rows: [InputRow] = []
+    private var statusItem: NSStatusItem?
     private var status = NSTextField(labelWithString: "")
     private let inputs = [("HDMI 1", "hdmi1", 17), ("DisplayPort", "displayport", 15)]
 
@@ -28,8 +33,20 @@ final class Switcher: NSObject, NSApplicationDelegate {
             fputs("Helios: Could not register Control-Option-H.\n", stderr)
             NSApp.terminate(nil)
         }
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        item.button?.image = NSImage(systemSymbolName: "sun.max", accessibilityDescription: "Helios")
+        let menu = NSMenu()
+        let show = NSMenuItem(title: "Show Input Switcher", action: #selector(showSwitcher), keyEquivalent: "")
+        show.target = self
+        menu.addItem(show)
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem(title: "Quit Helios", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        item.menu = menu
+        statusItem = item
         print("Helios running. Press Control-Option-H to open the switcher; Control-C quits.")
     }
+
+    @objc private func showSwitcher() { open() }
 
     private func command(_ arguments: [String]) throws -> String {
         let task = Process()
@@ -49,21 +66,34 @@ final class Switcher: NSObject, NSApplicationDelegate {
     func open() {
         if panel?.isVisible == true { close(); return }
         timer?.invalidate()
-        let window = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 320, height: 180), styleMask: [.titled, .nonactivatingPanel], backing: .buffered, defer: false)
-        window.title = "Helios"
+        let window = SwitcherPanel(contentRect: NSRect(x: 0, y: 0, width: 320, height: 150), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         window.level = .floating
         window.isReleasedWhenClosed = false
         window.becomesKeyOnlyIfNeeded = false
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = true
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         if let frame = screen?.visibleFrame { window.setFrameOrigin(NSPoint(x: frame.maxX - 336, y: frame.minY + 16)) }
-        let stack = NSStackView(frame: NSRect(x: 16, y: 16, width: 288, height: 140))
-        stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 10
-        stack.addArrangedSubview(NSTextField(labelWithString: "Select an input"))
-        labels = inputs.map { _ in NSTextField(labelWithString: "") }
-        labels.forEach { stack.addArrangedSubview($0) }
-        status = NSTextField(wrappingLabelWithString: "↑ ↓ or 1–2 to select · Esc to cancel")
-        stack.addArrangedSubview(status)
-        window.contentView?.addSubview(stack)
+        let glass = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 320, height: 150))
+        glass.material = .hudWindow
+        glass.blendingMode = .behindWindow
+        glass.state = .active
+        glass.wantsLayer = true
+        glass.layer?.cornerRadius = 18
+        glass.layer?.masksToBounds = true
+        window.contentView = glass
+        rows = inputs.enumerated().map { index, input in
+            let row = InputRow(frame: NSRect(x: 14, y: 91 - index * 50, width: 292, height: 44), title: "\(index + 1)   \(input.0)")
+            row.onClick = { [weak self] in self?.choose(index) }
+            glass.addSubview(row)
+            return row
+        }
+        status = NSTextField(wrappingLabelWithString: "")
+        status.frame = NSRect(x: 18, y: 5, width: 284, height: 30)
+        status.font = .systemFont(ofSize: 11)
+        status.textColor = .secondaryLabelColor
+        glass.addSubview(status)
         panel = window
         do {
             let result = try command(["read-input"])
@@ -91,15 +121,14 @@ final class Switcher: NSObject, NSApplicationDelegate {
         }
     }
     private func render() {
-        for i in inputs.indices {
-            labels[i].stringValue = "\(i + 1). \(inputs[i].0)\(i == current ? "  • Current" : "")\(i == selected ? "  ◀" : "")"
-        }
+        for i in inputs.indices { rows[i].stopProgress(); rows[i].update(selected: i == selected, current: i == current) }
     }
     private func choose(_ index: Int) {
         guard current != nil else { return }
         selected = index; timer?.invalidate(); render()
-        guard index != current else { status.stringValue = "Current input selected"; return }
-        status.stringValue = "Switching in 1 second…"
+        status.stringValue = ""
+        guard index != current else { return }
+        rows[index].startProgress()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
@@ -110,6 +139,7 @@ final class Switcher: NSObject, NSApplicationDelegate {
     }
     private func close() {
         timer?.invalidate(); timer = nil
+        rows.forEach { $0.stopProgress() }
         if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
         panel?.orderOut(nil)
     }

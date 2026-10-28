@@ -129,7 +129,7 @@ final class Switcher: NSObject, NSApplicationDelegate {
         status.stringValue = ""
         guard index != current else { return }
         rows[index].startProgress()
-        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: false) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 do { _ = try self.command(["set-input", self.inputs[index].1]); self.close() }

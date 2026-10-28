@@ -33,19 +33,26 @@ final class InputRow: NSView {
         marker.isHidden = !current
     }
     func startProgress() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         fill.removeAllAnimations()
-        fill.frame = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
-        let animation = CABasicAnimation(keyPath: "bounds.size.width")
-        animation.fromValue = 0
-        animation.toValue = bounds.width
-        animation.duration = 1
-        animation.timingFunction = CAMediaTimingFunction(name: .linear)
         fill.anchorPoint = CGPoint(x: 0, y: 0.5)
+        fill.bounds = CGRect(x: 0, y: 0, width: bounds.width, height: bounds.height)
         fill.position = CGPoint(x: 0, y: bounds.midY)
+        CATransaction.commit()
+        let animation = CABasicAnimation(keyPath: "transform.scale.x")
+        animation.fromValue = 0
+        animation.toValue = 1
+        animation.duration = 5
+        animation.timingFunction = CAMediaTimingFunction(name: .linear)
         fill.add(animation, forKey: "progress")
     }
+
     func stopProgress() {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         fill.removeAllAnimations()
-        fill.frame = .zero
+        fill.bounds = .zero
+        CATransaction.commit()
     }
 }

@@ -248,7 +248,15 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
             MainActor.assumeIsolated { self?.close() }
         }
         NSApp.activate(ignoringOtherApps: true)
+        window.alphaValue = 0
+        window.animationBehavior = .none
         window.makeKeyAndOrderFront(nil)
+        animateScale(of: window, from: 0.96, to: 1, duration: 0.15)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            window.animator().alphaValue = 1
+        }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, self.panel?.isKeyWindow == true else { return event }
             switch event.keyCode {
@@ -297,7 +305,30 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
         }
     }
+    private func animateScale(of window: NSPanel, from start: CGFloat, to end: CGFloat, duration: TimeInterval) {
+        guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+              let layer = window.contentView?.layer else { return }
+        // Keep the scale centered regardless of the backing layer's anchor.
+        let center = CGPoint(x: layer.bounds.midX - layer.anchorPoint.x * layer.bounds.width,
+                             y: layer.bounds.midY - layer.anchorPoint.y * layer.bounds.height)
+        func transform(_ scale: CGFloat) -> CATransform3D {
+            var value = CATransform3DMakeTranslation(center.x * (1 - scale), center.y * (1 - scale), 0)
+            value = CATransform3DScale(value, scale, scale, 1)
+            return value
+        }
+        let animation = CABasicAnimation(keyPath: "transform")
+        animation.fromValue = layer.animation(forKey: "popupScale") != nil
+            ? (layer.presentation()?.transform ?? transform(start)) : transform(start)
+        animation.toValue = transform(end)
+        animation.duration = duration
+        animation.timingFunction = CAMediaTimingFunction(name: end == 1 ? .easeOut : .easeIn)
+        animation.fillMode = .forwards
+        animation.isRemovedOnCompletion = false
+        layer.add(animation, forKey: "popupScale")
+    }
+
     private func close() {
+        guard let window = panel else { return }
         // A timeout must not steal focus if the user has already switched apps.
         let shouldRestoreFocus = NSApp.isActive || panel?.isKeyWindow == true
         let applicationToRestore = previousApplication
@@ -306,9 +337,18 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
         timer?.invalidate(); timer = nil
         rows.forEach { $0.stopProgress() }
         if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
-        panel?.orderOut(nil)
+        panel = nil
+        window.ignoresMouseEvents = true
         if shouldRestoreFocus, let applicationToRestore, !applicationToRestore.isTerminated {
             applicationToRestore.activate(options: [.activateIgnoringOtherApps])
+        }
+        animateScale(of: window, from: 1, to: 0.98, duration: 0.12)
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.12
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            window.animator().alphaValue = 0
+        } completionHandler: {
+            Task { @MainActor in window.orderOut(nil) }
         }
     }
 }

@@ -1,12 +1,13 @@
 import AppKit
 import Carbon
+import ServiceManagement
 
 final class SwitcherPanel: NSPanel {
     override var canBecomeKey: Bool { true }
 }
 
 @MainActor
-final class Switcher: NSObject, NSApplicationDelegate {
+final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var hotkey: EventHotKeyRef?
     private var handler: EventHandlerRef?
     private var panel: NSPanel?
@@ -18,6 +19,9 @@ final class Switcher: NSObject, NSApplicationDelegate {
     private var rows: [InputRow] = []
     private var statusItem: NSStatusItem?
     private var delayItems: [NSMenuItem] = []
+    private var loginItem: NSMenuItem?
+    private var loginApprovalItem: NSMenuItem?
+    private var isAppBundle: Bool { Bundle.main.bundleURL.pathExtension == "app" }
     private var switchDelay: Int = {
         let stored = UserDefaults.standard.object(forKey: "switchDelay") as? Int ?? 5
         return [0, 5, 10].contains(stored) ? stored : 5
@@ -44,6 +48,7 @@ final class Switcher: NSObject, NSApplicationDelegate {
         menuIcon?.isTemplate = true
         item.button?.image = menuIcon
         let menu = NSMenu()
+        menu.delegate = self
         let show = NSMenuItem(title: "Show Helios", action: #selector(showSwitcher), keyEquivalent: "")
         show.target = self
         menu.addItem(show)
@@ -60,6 +65,16 @@ final class Switcher: NSObject, NSApplicationDelegate {
             delayItems.append(option)
         }
         menu.addItem(.separator())
+        let login = NSMenuItem(title: "Launch at Login", action: isAppBundle ? #selector(toggleLaunchAtLogin) : nil, keyEquivalent: "")
+        login.target = self
+        login.toolTip = "Start Helios automatically when you log in to your Mac. Requires the installed app."
+        menu.addItem(login)
+        loginItem = login
+        let approval = NSMenuItem(title: "Approve in System Settings…", action: #selector(openLoginSettings), keyEquivalent: "")
+        approval.target = self
+        menu.addItem(approval)
+        loginApprovalItem = approval
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Helios", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         menu.addItem(.separator())
         let versionItem = NSMenuItem(title: "Helios \(AppVersion.current)", action: nil, keyEquivalent: "")
@@ -67,10 +82,50 @@ final class Switcher: NSObject, NSApplicationDelegate {
         menu.addItem(versionItem)
         item.menu = menu
         statusItem = item
+        configureLaunchAtLogin()
         print("Helios running. Press Control-Option-H to open the switcher; Control-C quits.")
     }
 
     @objc private func showSwitcher() { open() }
+
+    private func configureLaunchAtLogin() {
+        // Register once on the first bundled launch. Later changes in System
+        // Settings belong to the user and must not be overridden on startup.
+        if isAppBundle && !UserDefaults.standard.bool(forKey: "loginItemInitialized") {
+            UserDefaults.standard.set(true, forKey: "loginItemInitialized")
+            if SMAppService.mainApp.status == .notRegistered {
+                do { try SMAppService.mainApp.register() }
+                catch { fputs("Helios: Could not enable launch at login: \(error.localizedDescription)\n", stderr) }
+            }
+        }
+        refreshLoginMenu()
+    }
+
+    func menuWillOpen(_ menu: NSMenu) { refreshLoginMenu() }
+
+    private func refreshLoginMenu() {
+        let status = isAppBundle ? SMAppService.mainApp.status : .notRegistered
+        loginItem?.state = status == .enabled ? .on : (status == .requiresApproval ? .mixed : .off)
+        loginApprovalItem?.isHidden = status != .requiresApproval
+    }
+
+    @objc private func openLoginSettings() { SMAppService.openSystemSettingsLoginItems() }
+
+    @objc private func toggleLaunchAtLogin() {
+        guard isAppBundle else { return }
+        do {
+            switch SMAppService.mainApp.status {
+            case .enabled, .requiresApproval: try SMAppService.mainApp.unregister()
+            default: try SMAppService.mainApp.register()
+            }
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Could not change Launch at Login"
+            alert.informativeText = error.localizedDescription
+            alert.runModal()
+        }
+        refreshLoginMenu()
+    }
 
     @objc private func changeDelay(_ sender: NSMenuItem) {
         switchDelay = sender.tag

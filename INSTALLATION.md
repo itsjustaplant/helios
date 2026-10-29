@@ -38,7 +38,10 @@ The commands clone and build in a temporary directory, then automatically delete
 that directory, including the source and build output, when they finish or fail.
 The installed app remains in `~/Applications` and is self-contained; opening it
 does not rebuild it. Shared compiler caches may remain outside the temporary
-directory. Helios does not start automatically at login.
+directory. On its first installed launch, Helios enables Launch at Login. You
+can turn this off in the menu. If macOS requires approval, use the menu's
+"Approve in System Settings…" option. This starts Helios after you log in, not
+before login.
 
 To install into the system-wide Applications folder instead, if it is writable,
 append `--app-dir /Applications` to the `python3` command in the block above.
@@ -56,5 +59,5 @@ the installer.
 
 ## Uninstall
 
-Quit Helios and move `~/Applications/Helios.app` to the Trash. If you installed
+Turn off Launch at Login, quit Helios, and move `~/Applications/Helios.app` to the Trash. If you installed
 into `/Applications`, remove that copy instead.

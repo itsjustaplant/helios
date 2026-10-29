@@ -29,22 +29,22 @@ needed to build may be newer than the version needed to run the resulting app.
 )
 ```
 
-The script builds the release app and installs it at `~/Applications/Helios.app`
-without administrator access. Open your home folder's Applications folder in
-Finder and double-click Helios. Its sun icon appears in the menu bar; press
+The script builds the release app and installs it at `/Applications/Helios.app`.
+Open Applications in Finder and double-click Helios. Its sun icon appears in the menu bar; press
 Control–Option–H to open the input switcher.
 
 The commands clone and build in a temporary directory, then automatically delete
 that directory, including the source and build output, when they finish or fail.
-The installed app remains in `~/Applications` and is self-contained; opening it
+The installed app remains in `/Applications` and is self-contained; opening it
 does not rebuild it. Shared compiler caches may remain outside the temporary
 directory. On its first installed launch, Helios enables Launch at Login. You
 can turn this off in the menu. If macOS requires approval, use the menu's
 "Approve in System Settings…" option. This starts Helios after you log in, not
 before login.
 
-To install into the system-wide Applications folder instead, if it is writable,
-append `--app-dir /Applications` to the `python3` command in the block above.
+If your account cannot write to `/Applications`, append
+`--app-dir "$HOME/Applications"` to the `python3` command in the block above to
+install into your user Applications folder instead.
 
 Do not run the build with `sudo`. Local building does not grant Apple
 notarization, and managed Macs may have additional launch restrictions.
@@ -59,5 +59,5 @@ the installer.
 
 ## Uninstall
 
-Turn off Launch at Login, quit Helios, and move `~/Applications/Helios.app` to the Trash. If you installed
-into `/Applications`, remove that copy instead.
+Turn off Launch at Login, quit Helios, and move `/Applications/Helios.app` to the
+Trash. If you chose a different installation folder, remove that copy instead.

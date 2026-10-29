@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.2] - 2026-10-29
+
+- Install into `/Applications` by default so Helios appears in Finder's Applications folder.
+- Explain the user Applications fallback when the default folder is not writable.
+
 ## [1.0.1] - 2026-10-29
 
 - Add a white sun app icon on a black background for Finder and Applications.

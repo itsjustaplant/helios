@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Helios once and install a standalone app for the current user."""
+"""Build Helios once and install a standalone app in Applications."""
 import argparse
 from pathlib import Path
 import platform
@@ -46,8 +46,8 @@ def install_app(source, app_dir):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--app-dir", type=Path, default=Path.home() / "Applications",
-                        help="Installation directory (default: ~/Applications)")
+    parser.add_argument("--app-dir", type=Path, default=Path("/Applications"),
+                        help="Installation directory (default: /Applications)")
     args = parser.parse_args()
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         parser.error("Helios currently supports Apple Silicon Macs only.")
@@ -58,7 +58,10 @@ def main():
     if not version or tuple(map(int, version.groups())) < (6, 2):
         parser.error("Swift 6.2 or later is required. Update Xcode or Command Line Tools.")
     subprocess.run([sys.executable, str(ROOT / "scripts/package-app.py")], cwd=ROOT, check=True)
-    destination = install_app(ROOT / "dist/Helios.app", args.app_dir.expanduser().resolve())
+    try:
+        destination = install_app(ROOT / "dist/Helios.app", args.app_dir.expanduser().resolve())
+    except PermissionError:
+        parser.exit(1, 'Cannot write to Applications. Install with --app-dir "$HOME/Applications" instead, or move dist/Helios.app there using Finder. Do not run the build with sudo.\n')
     print(f"Installed: {destination}")
     print("Open Helios.app from Finder. It runs from the menu bar.")
     print("The source folder is no longer needed to run it. Rebuild only when updating.")

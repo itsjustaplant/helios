@@ -11,6 +11,7 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var hotkey: EventHotKeyRef?
     private var handler: EventHandlerRef?
     private var panel: NSPanel?
+    private var previousApplication: NSRunningApplication?
     private var monitor: Any?
     private var timer: Timer?
     private var inactivityTimer: Timer?
@@ -159,6 +160,8 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func open() {
         if panel?.isVisible == true { close(); return }
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        previousApplication = frontmost?.processIdentifier == ProcessInfo.processInfo.processIdentifier ? nil : frontmost
         timer?.invalidate()
         let window = SwitcherPanel(contentRect: NSRect(x: 0, y: 0, width: 320, height: 130), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         window.level = .floating
@@ -254,11 +257,18 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
     private func close() {
+        // A timeout must not steal focus if the user has already switched apps.
+        let shouldRestoreFocus = NSApp.isActive || panel?.isKeyWindow == true
+        let applicationToRestore = previousApplication
+        previousApplication = nil
         inactivityTimer?.invalidate(); inactivityTimer = nil
         timer?.invalidate(); timer = nil
         rows.forEach { $0.stopProgress() }
         if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
         panel?.orderOut(nil)
+        if shouldRestoreFocus, let applicationToRestore, !applicationToRestore.isTerminated {
+            applicationToRestore.activate(options: [.activateIgnoringOtherApps])
+        }
     }
 }
 

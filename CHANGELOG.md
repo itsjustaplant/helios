@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.0] - 2026-10-29
+
+- Choose from five saved popup positions: Top Left, Top Right, Bottom Left, Bottom Right, and Center.
+- Add position menu icons and aligned section headings.
+- Restore focus to the app that opened Helios when dismissing the switcher.
+- Add smooth opening and closing animations, with fades only when Reduce Motion is enabled.
+- Request focus changes before opening and closing animations begin.
+- Increase the popup's soft-grey border to 4 points.
+
 ## [1.0.2] - 2026-10-29
 
 - Install into `/Applications` by default so Helios appears in Finder's Applications folder.

@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.0.1] - 2026-10-29
+
+- Add a white sun app icon on a black background for Finder and Applications.
+- Include the icon in packaged and locally installed apps.
+
 ## [1.0.0] - 2026-10-29
 
 First stable release.

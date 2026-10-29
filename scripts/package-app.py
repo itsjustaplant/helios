@@ -42,6 +42,7 @@ def main():
         (contents / "Resources").mkdir()
         shutil.copy2(binary_dir / "Helios", contents / "MacOS/Helios")
         shutil.copyfile(ROOT / "LICENSE", contents / "Resources/LICENSE")
+        shutil.copyfile(ROOT / "Assets/Helios.icns", contents / "Resources/Helios.icns")
         # The packaged app reads its version from Info.plist. No SwiftPM build
         # resources, debug files, or files from the working tree are shipped.
         run("strip", "-S", str(contents / "MacOS/Helios"))
@@ -53,6 +54,7 @@ def main():
             "CFBundleDisplayName": "Helios",
             "CFBundleIdentifier": args.bundle_id,
             "CFBundleExecutable": "Helios",
+            "CFBundleIconFile": "Helios.icns",
             "CFBundlePackageType": "APPL",
             "CFBundleShortVersionString": version,
             "CFBundleVersion": args.build_number,

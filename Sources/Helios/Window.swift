@@ -62,8 +62,7 @@ final class Switcher: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Helios", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         menu.addItem(.separator())
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
-        let versionItem = NSMenuItem(title: "Helios \(version)", action: nil, keyEquivalent: "")
+        let versionItem = NSMenuItem(title: "Helios \(AppVersion.current)", action: nil, keyEquivalent: "")
         versionItem.isEnabled = false
         menu.addItem(versionItem)
         item.menu = menu

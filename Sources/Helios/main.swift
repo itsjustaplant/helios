@@ -89,7 +89,7 @@ func run() throws {
     print("Display vendor \(CGDisplayVendorNumber(display)), model \(CGDisplayModelNumber(display)): input \(value) (0x\(String(value, radix: 16)))")
 }
 
-if CommandLine.arguments.dropFirst().elementsEqual(["window"]) {
+if CommandLine.arguments.count == 1 || CommandLine.arguments.dropFirst().elementsEqual(["window"]) {
     startWindow()
 } else {
     do { try run() } catch {

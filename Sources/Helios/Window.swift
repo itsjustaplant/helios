@@ -20,6 +20,8 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var rows: [InputRow] = []
     private var statusItem: NSStatusItem?
     private var delayItems: [NSMenuItem] = []
+    private var positionItems: [NSMenuItem] = []
+    private var popupPosition = PopupPosition(rawValue: UserDefaults.standard.string(forKey: "popupPosition") ?? "") ?? .bottomRight
     private var loginItem: NSMenuItem?
     private var loginApprovalItem: NSMenuItem?
     private var isAppBundle: Bool { Bundle.main.bundleURL.pathExtension == "app" }
@@ -54,8 +56,7 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
         show.target = self
         menu.addItem(show)
         menu.addItem(.separator())
-        let delayHeading = NSMenuItem(title: "Switch Delay", action: nil, keyEquivalent: "")
-        delayHeading.isEnabled = false
+        let delayHeading = sectionHeading("Switch Delay")
         menu.addItem(delayHeading)
         for (title, seconds) in [("Immediate", 0), ("5s", 5), ("10s", 10)] {
             let option = NSMenuItem(title: title, action: #selector(changeDelay(_:)), keyEquivalent: "")
@@ -64,6 +65,18 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
             option.state = seconds == switchDelay ? .on : .off
             menu.addItem(option)
             delayItems.append(option)
+        }
+        menu.addItem(.separator())
+        let positionHeading = sectionHeading("Position")
+        menu.addItem(positionHeading)
+        for (index, position) in PopupPosition.allCases.enumerated() {
+            let option = NSMenuItem(title: position.title, action: #selector(changePosition(_:)), keyEquivalent: "")
+            option.image = NSImage(systemSymbolName: position.symbolName, accessibilityDescription: position.title)
+            option.target = self
+            option.tag = index
+            option.state = position == popupPosition ? .on : .off
+            menu.addItem(option)
+            positionItems.append(option)
         }
         menu.addItem(.separator())
         let login = NSMenuItem(title: "Launch at Login", action: isAppBundle ? #selector(toggleLaunchAtLogin) : nil, keyEquivalent: "")
@@ -88,6 +101,32 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func showSwitcher() { open() }
+
+    private func sectionHeading(_ title: String) -> NSMenuItem {
+        if #available(macOS 14.0, *) {
+            return NSMenuItem.sectionHeader(title: title)
+        }
+        let item = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        item.isEnabled = false
+        let view = NSView(frame: NSRect(x: 0, y: 0, width: 160, height: 24))
+        let label = NSTextField(labelWithString: title)
+        label.font = .systemFont(ofSize: 12, weight: .semibold)
+        label.textColor = .secondaryLabelColor
+        label.frame = NSRect(x: 8, y: 4, width: 144, height: 18)
+        view.addSubview(label)
+        item.view = view
+        return item
+    }
+
+    @objc private func changePosition(_ sender: NSMenuItem) {
+        guard PopupPosition.allCases.indices.contains(sender.tag) else { return }
+        popupPosition = PopupPosition.allCases[sender.tag]
+        UserDefaults.standard.set(popupPosition.rawValue, forKey: "popupPosition")
+        for item in positionItems { item.state = item.tag == sender.tag ? .on : .off }
+        if let panel, panel.isVisible, let screen = panel.screen {
+            panel.setFrameOrigin(popupPosition.origin(for: panel.frame.size, in: screen.visibleFrame))
+        }
+    }
 
     private func configureLaunchAtLogin() {
         // Register once on the first bundled launch. Later changes in System
@@ -171,7 +210,9 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
         window.backgroundColor = .clear
         window.hasShadow = false
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
-        if let frame = screen?.visibleFrame { window.setFrameOrigin(NSPoint(x: frame.maxX - 336, y: frame.minY + 16)) }
+        if let frame = screen?.visibleFrame {
+            window.setFrameOrigin(popupPosition.origin(for: window.frame.size, in: frame))
+        }
         let content = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 130))
         content.wantsLayer = true
         content.layer?.backgroundColor = NSColor.white.cgColor

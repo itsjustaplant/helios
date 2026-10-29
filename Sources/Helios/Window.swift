@@ -17,6 +17,11 @@ final class Switcher: NSObject, NSApplicationDelegate {
     private var current: Int?
     private var rows: [InputRow] = []
     private var statusItem: NSStatusItem?
+    private var delayItems: [NSMenuItem] = []
+    private var switchDelay: Int = {
+        let stored = UserDefaults.standard.object(forKey: "switchDelay") as? Int ?? 5
+        return [0, 5, 10].contains(stored) ? stored : 5
+    }()
     private var status = NSTextField(labelWithString: "")
     private let inputs = [("HDMI 1", "hdmi1", 17), ("DisplayPort", "displayport", 15)]
 
@@ -39,17 +44,49 @@ final class Switcher: NSObject, NSApplicationDelegate {
         menuIcon?.isTemplate = true
         item.button?.image = menuIcon
         let menu = NSMenu()
-        let show = NSMenuItem(title: "Show Input Switcher", action: #selector(showSwitcher), keyEquivalent: "")
+        let show = NSMenuItem(title: "Show Helios", action: #selector(showSwitcher), keyEquivalent: "")
         show.target = self
         menu.addItem(show)
         menu.addItem(.separator())
+        let delayHeading = NSMenuItem(title: "Switch Delay", action: nil, keyEquivalent: "")
+        delayHeading.isEnabled = false
+        menu.addItem(delayHeading)
+        for (title, seconds) in [("Immediate", 0), ("5s", 5), ("10s", 10)] {
+            let option = NSMenuItem(title: title, action: #selector(changeDelay(_:)), keyEquivalent: "")
+            option.target = self
+            option.tag = seconds
+            option.state = seconds == switchDelay ? .on : .off
+            menu.addItem(option)
+            delayItems.append(option)
+        }
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit Helios", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(.separator())
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
+        let versionItem = NSMenuItem(title: "Helios \(version)", action: nil, keyEquivalent: "")
+        versionItem.isEnabled = false
+        menu.addItem(versionItem)
         item.menu = menu
         statusItem = item
         print("Helios running. Press Control-Option-H to open the switcher; Control-C quits.")
     }
 
     @objc private func showSwitcher() { open() }
+
+    @objc private func changeDelay(_ sender: NSMenuItem) {
+        switchDelay = sender.tag
+        UserDefaults.standard.set(switchDelay, forKey: "switchDelay")
+        for item in delayItems { item.state = item.tag == switchDelay ? .on : .off }
+    }
+
+    private func switchInput(_ index: Int) {
+        timer = nil
+        do { _ = try command(["set-input", inputs[index].1]); close() }
+        catch {
+            render()
+            status.stringValue = error.localizedDescription
+        }
+    }
 
     private func command(_ arguments: [String]) throws -> String {
         let task = Process()
@@ -154,12 +191,11 @@ final class Switcher: NSObject, NSApplicationDelegate {
             }
             return
         }
-        rows[index].startProgress()
-        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
+        guard switchDelay > 0 else { switchInput(index); return }
+        rows[index].startProgress(duration: TimeInterval(switchDelay))
+        timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(switchDelay), repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self else { return }
-                do { _ = try self.command(["set-input", self.inputs[index].1]); self.close() }
-                catch { self.status.stringValue = error.localizedDescription }
+                self?.switchInput(index)
             }
         }
     }

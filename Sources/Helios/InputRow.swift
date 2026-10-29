@@ -106,7 +106,7 @@ final class InputRow: NSView {
         enterBadge.isHidden = !selected || current
         whiteEnterBadge?.isHidden = !selected || current
     }
-    func startProgress() {
+    func startProgress(duration: TimeInterval) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         layer?.borderColor = Self.confirmedColor.cgColor
@@ -125,7 +125,7 @@ final class InputRow: NSView {
         let animation = CABasicAnimation(keyPath: "transform.scale.x")
         animation.fromValue = 0
         animation.toValue = 1
-        animation.duration = 5
+        animation.duration = duration
         animation.timingFunction = CAMediaTimingFunction(name: .linear)
         animation.beginTime = CACurrentMediaTime()
         fill.add(animation, forKey: "progress")

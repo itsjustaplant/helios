@@ -73,28 +73,28 @@ final class Switcher: NSObject, NSApplicationDelegate {
         window.becomesKeyOnlyIfNeeded = false
         window.isOpaque = false
         window.backgroundColor = .clear
-        window.hasShadow = true
+        window.hasShadow = false
         let screen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
         if let frame = screen?.visibleFrame { window.setFrameOrigin(NSPoint(x: frame.maxX - 336, y: frame.minY + 16)) }
-        let glass = NSVisualEffectView(frame: NSRect(x: 0, y: 0, width: 320, height: 130))
-        glass.material = .hudWindow
-        glass.blendingMode = .behindWindow
-        glass.state = .active
-        glass.wantsLayer = true
-        glass.layer?.cornerRadius = 18
-        glass.layer?.masksToBounds = true
-        window.contentView = glass
+        let content = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 130))
+        content.wantsLayer = true
+        content.layer?.backgroundColor = NSColor.white.cgColor
+        content.layer?.cornerRadius = 14
+        content.layer?.borderWidth = 3
+        content.layer?.borderColor = NSColor(srgbRed: 0.92, green: 0.92, blue: 0.93, alpha: 1).cgColor
+        content.layer?.masksToBounds = true
+        window.contentView = content
         rows = inputs.enumerated().map { index, input in
-            let row = InputRow(frame: NSRect(x: 14, y: 71 - index * 50, width: 292, height: 44), title: "\(index + 1)   \(input.0)")
+            let row = InputRow(frame: NSRect(x: 16, y: 70 - index * 54, width: 288, height: 44), title: "\(index + 1)   \(input.0)")
             row.onClick = { [weak self] in self?.choose(index) }
-            glass.addSubview(row)
+            content.addSubview(row)
             return row
         }
         status = NSTextField(wrappingLabelWithString: "")
         status.frame = NSRect(x: 18, y: 2, width: 284, height: 18)
         status.font = .systemFont(ofSize: 11)
         status.textColor = .secondaryLabelColor
-        glass.addSubview(status)
+        content.addSubview(status)
         panel = window
         do {
             let result = try command(["read-input"])
@@ -116,17 +116,30 @@ final class Switcher: NSObject, NSApplicationDelegate {
             guard let self, self.panel?.isKeyWindow == true else { return event }
             switch event.keyCode {
             case 53: self.close()
-            case 125: self.choose((self.selected + 1) % 2)
-            case 126: self.choose((self.selected + 1) % 2)
-            case 18: self.choose(0)
-            case 19: self.choose(1)
+            case 125: self.highlight((self.selected + 1) % self.inputs.count)
+            case 126: self.highlight((self.selected + self.inputs.count - 1) % self.inputs.count)
+            case 18: self.highlight(0)
+            case 19: self.highlight(1)
+            case 36, 76: self.choose(self.selected)
             default: return event
             }
             return nil
         }
     }
+
     private func render() {
         for i in inputs.indices { rows[i].stopProgress(); rows[i].update(selected: i == selected, current: i == current) }
+    }
+    private func highlight(_ index: Int) {
+        guard current != nil else { return }
+        timer?.invalidate(); timer = nil
+        selected = index
+        render()
+        status.stringValue = ""
+        inactivityTimer?.invalidate()
+        inactivityTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.close() }
+        }
     }
     private func choose(_ index: Int) {
         guard current != nil else { return }

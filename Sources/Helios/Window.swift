@@ -173,7 +173,7 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
         content.wantsLayer = true
         content.layer?.backgroundColor = NSColor.white.cgColor
         content.layer?.cornerRadius = 14
-        content.layer?.borderWidth = 3
+        content.layer?.borderWidth = 4
         content.layer?.borderColor = NSColor(srgbRed: 0.92, green: 0.92, blue: 0.93, alpha: 1).cgColor
         content.layer?.masksToBounds = true
         window.contentView = content

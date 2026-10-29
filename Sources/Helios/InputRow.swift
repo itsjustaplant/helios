@@ -28,8 +28,9 @@ final class InputRow: NSView {
     override func mouseDown(with event: NSEvent) { onClick?() }
 
     func update(selected: Bool, current: Bool) {
-        layer?.backgroundColor = NSColor.white.withAlphaComponent(selected ? 0.15 : 0.06).cgColor
-        layer?.borderColor = NSColor.white.withAlphaComponent(selected ? 0.45 : 0.14).cgColor
+        layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(selected ? 0.12 : 0.055).cgColor
+        layer?.borderColor = NSColor.labelColor.withAlphaComponent(selected ? 0.16 : 0.09).cgColor
+        layer?.borderWidth = 1
         marker.isHidden = !current
     }
     func startProgress() {

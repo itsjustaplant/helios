@@ -12,6 +12,7 @@ final class Switcher: NSObject, NSApplicationDelegate {
     private var panel: NSPanel?
     private var monitor: Any?
     private var timer: Timer?
+    private var inactivityTimer: Timer?
     private var selected = 0
     private var current: Int?
     private var rows: [InputRow] = []
@@ -105,6 +106,10 @@ final class Switcher: NSObject, NSApplicationDelegate {
             status.stringValue = error.localizedDescription
         }
         render()
+        inactivityTimer?.invalidate()
+        inactivityTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated { self?.close() }
+        }
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -125,9 +130,15 @@ final class Switcher: NSObject, NSApplicationDelegate {
     }
     private func choose(_ index: Int) {
         guard current != nil else { return }
+        inactivityTimer?.invalidate(); inactivityTimer = nil
         selected = index; timer?.invalidate(); render()
         status.stringValue = ""
-        guard index != current else { return }
+        guard index != current else {
+            inactivityTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated { self?.close() }
+            }
+            return
+        }
         rows[index].startProgress()
         timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -138,6 +149,7 @@ final class Switcher: NSObject, NSApplicationDelegate {
         }
     }
     private func close() {
+        inactivityTimer?.invalidate(); inactivityTimer = nil
         timer?.invalidate(); timer = nil
         rows.forEach { $0.stopProgress() }
         if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }

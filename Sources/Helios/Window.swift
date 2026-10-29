@@ -35,7 +35,9 @@ final class Switcher: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
         }
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.button?.image = NSImage(systemSymbolName: "sun.max", accessibilityDescription: "Helios")
+        let menuIcon = NSImage(systemSymbolName: "sun.max.fill", accessibilityDescription: "Helios input switcher")
+        menuIcon?.isTemplate = true
+        item.button?.image = menuIcon
         let menu = NSMenu()
         let show = NSMenuItem(title: "Show Input Switcher", action: #selector(showSwitcher), keyEquivalent: "")
         show.target = self

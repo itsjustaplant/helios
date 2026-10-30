@@ -13,5 +13,6 @@ let package = Package(
             name: "Helios",
             resources: [.copy("Resources/VERSION")]
         ),
+        .testTarget(name: "HeliosTests", dependencies: ["Helios"]),
     ]
 )

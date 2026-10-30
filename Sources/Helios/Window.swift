@@ -14,6 +14,7 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var previousApplication: NSRunningApplication?
     private var monitor: Any?
     private var timer: Timer?
+    private var countdown: SwitchCountdown?
     private var inactivityTimer: Timer?
     private var selected = 0
     private var current: Int?
@@ -175,6 +176,7 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func switchInput(_ index: Int) {
         timer = nil
+        countdown = nil
         do { _ = try command(["set-input", inputs[index].1]); close() }
         catch {
             render()
@@ -266,7 +268,8 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
             case 126: self.highlight((self.selected + self.inputs.count - 1) % self.inputs.count)
             case 18: self.highlight(0)
             case 19: self.highlight(1)
-            case 36, 76: self.choose(self.selected)
+            case 36, 76:
+                if !event.isARepeat { self.confirmSelection() }
             default: return event
             }
             return nil
@@ -278,6 +281,7 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
     private func highlight(_ index: Int) {
         timer?.invalidate(); timer = nil
+        countdown = nil
         selected = index
         render()
         if current != nil { status.stringValue = "" }
@@ -290,6 +294,7 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Reading the current input can fail even when the monitor accepts writes.
         // An unknown input must still allow an explicit switch request.
         inactivityTimer?.invalidate(); inactivityTimer = nil
+        countdown = nil
         selected = index; timer?.invalidate(); render()
         status.stringValue = ""
         guard index != current else {
@@ -299,8 +304,26 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         guard switchDelay > 0 else { switchInput(index); return }
-        rows[index].startProgress(duration: TimeInterval(switchDelay))
-        timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(switchDelay), repeats: false) { [weak self] _ in
+        countdown = SwitchCountdown(duration: TimeInterval(switchDelay), startedAt: ProcessInfo.processInfo.systemUptime)
+        scheduleCountdown(index)
+    }
+
+    private func confirmSelection() {
+        guard countdown != nil, timer?.isValid == true else { choose(selected); return }
+        // Enter accelerates once; further presses keep the same 5× speed.
+        guard countdown?.speed == 1 else { return }
+        countdown?.accelerate(at: ProcessInfo.processInfo.systemUptime)
+        scheduleCountdown(selected)
+    }
+
+    private func scheduleCountdown(_ index: Int) {
+        guard let countdown else { return }
+        timer?.invalidate()
+        let now = ProcessInfo.processInfo.systemUptime
+        let remaining = countdown.remainingDuration(at: now)
+        guard remaining > 0 else { switchInput(index); return }
+        rows[index].startProgress(duration: remaining, from: countdown.progress(at: now))
+        timer = Timer.scheduledTimer(withTimeInterval: remaining, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.switchInput(index)
             }
@@ -336,6 +359,7 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
         previousApplication = nil
         inactivityTimer?.invalidate(); inactivityTimer = nil
         timer?.invalidate(); timer = nil
+        countdown = nil
         rows.forEach { $0.stopProgress() }
         if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
         panel = nil

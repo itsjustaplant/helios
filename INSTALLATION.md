@@ -20,17 +20,21 @@ needed to build may be newer than the version needed to run the resulting app.
 ## Install
 
 ```sh
-(
-  set -eu
-  helios_source_dir="$(mktemp -d "${TMPDIR:-/tmp}/helios-install.XXXXXX")"
-  trap 'rm -rf -- "$helios_source_dir"' EXIT
-  git clone https://github.com/itsjustaplant/helios.git "$helios_source_dir/source"
-  python3 "$helios_source_dir/source/scripts/install-app.py"
-)
+curl -fsSLo /tmp/helios-install.sh https://raw.githubusercontent.com/itsjustaplant/helios/master/install.sh
+sh /tmp/helios-install.sh
 ```
 
-The script builds the release app and installs it at `/Applications/Helios.app`.
-Open Applications in Finder and double-click Helios. Its sun icon appears in the menu bar; press
+The script checks prerequisites, downloads the source, builds the release app,
+installs it at `/Applications/Helios.app`, and opens it. You can inspect the
+downloaded script before running it. If developer tools are missing, it opens
+Apple's installer; complete that installation and run the script again. An older
+Swift toolchain must be updated manually.
+
+From an existing checkout, run `sh install.sh` to install the latest `master`
+from GitHub, or `python3 scripts/install-app.py` to build that checkout instead.
+Pass `--no-open` to the shell script to install without launching the app.
+
+Its sun icon appears in the menu bar; press
 Control–Option–H to open the input switcher.
 
 The commands clone and build in a temporary directory, then automatically delete
@@ -42,9 +46,12 @@ can turn this off in the menu. If macOS requires approval, use the menu's
 "Approve in System Settings…" option. This starts Helios after you log in, not
 before login.
 
-If your account cannot write to `/Applications`, append
-`--app-dir "$HOME/Applications"` to the `python3` command in the block above to
-install into your user Applications folder instead.
+If your account cannot write to `/Applications`, install into your user
+Applications folder instead:
+
+```sh
+sh /tmp/helios-install.sh --app-dir "$HOME/Applications"
+```
 
 Do not run the build with `sudo`. Local building does not grant Apple
 notarization, and managed Macs may have additional launch restrictions.
@@ -53,9 +60,9 @@ notarization, and managed Macs may have additional launch restrictions.
 
 Quit Helios from its menu, then repeat the installation commands. A verified new
 bundle replaces the previous installation; the saved switch delay is retained.
-There are no automatic updates. To build a specific published release, add
-`--branch v1.0.0` to the `git clone` command once that tag exists and includes
-the installer.
+There are no automatic updates. To build a specific published release, run
+`sh /tmp/helios-install.sh --ref v1.0.0` once that tag exists and includes the
+installer.
 
 ## Uninstall
 

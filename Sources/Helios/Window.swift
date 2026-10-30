@@ -233,6 +233,7 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
         status.textColor = .secondaryLabelColor
         content.addSubview(status)
         panel = window
+        selected = 0
         do {
             let result = try command(["read-input"])
             current = inputs.firstIndex { result.contains("input \($0.2) (") }
@@ -276,18 +277,18 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
         for i in inputs.indices { rows[i].stopProgress(); rows[i].update(selected: i == selected, current: i == current) }
     }
     private func highlight(_ index: Int) {
-        guard current != nil else { return }
         timer?.invalidate(); timer = nil
         selected = index
         render()
-        status.stringValue = ""
+        if current != nil { status.stringValue = "" }
         inactivityTimer?.invalidate()
         inactivityTimer = Timer.scheduledTimer(withTimeInterval: 5, repeats: false) { [weak self] _ in
             MainActor.assumeIsolated { self?.close() }
         }
     }
     private func choose(_ index: Int) {
-        guard current != nil else { return }
+        // Reading the current input can fail even when the monitor accepts writes.
+        // An unknown input must still allow an explicit switch request.
         inactivityTimer?.invalidate(); inactivityTimer = nil
         selected = index; timer?.invalidate(); render()
         status.stringValue = ""

@@ -27,7 +27,7 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var isAppBundle: Bool { Bundle.main.bundleURL.pathExtension == "app" }
     private var switchDelay: Int = {
         let stored = UserDefaults.standard.object(forKey: "switchDelay") as? Int ?? 5
-        return [0, 5, 10].contains(stored) ? stored : 5
+        return [0, 3, 5, 10].contains(stored) ? stored : 5
     }()
     private var status = NSTextField(labelWithString: "")
     private let inputs = [("HDMI 1", "hdmi1", 17), ("DisplayPort", "displayport", 15)]
@@ -58,7 +58,7 @@ final class Switcher: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         let delayHeading = sectionHeading("Switch Delay")
         menu.addItem(delayHeading)
-        for (title, seconds) in [("Immediate", 0), ("5s", 5), ("10s", 10)] {
+        for (title, seconds) in [("Immediate", 0), ("3s", 3), ("5s", 5), ("10s", 10)] {
             let option = NSMenuItem(title: title, action: #selector(changeDelay(_:)), keyEquivalent: "")
             option.target = self
             option.tag = seconds
